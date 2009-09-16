@@ -268,14 +268,14 @@ class Stream(object):
 
     def __init__(self, sock):
         assert isinstance(sock, Socket)
-        self._sock = sock
+        self.socket = sock
         self._read_buffer = ""
         self._write_buffer = ""
 
     @inlineCallbacks
     def _read_more(self, size=0):
         size = size or self.read_buffer_size
-        data = yield self._sock.recv(size)
+        data = yield self.socket.recv(size)
         self._read_buffer += data
         returnValue(len(data))
 
@@ -301,11 +301,34 @@ class Stream(object):
             if not (yield self._read_more()):
                 break
 
+    def readline(self):
+        return self.read_until('\n')
+
     @inlineCallbacks
     def write(self, data):
         while data:
-            n = yield self._sock.send(data)
+            n = yield self.socket.send(data)
             data = data[n:]
+
+
+def run(d):
+    import tornado.ioloop
+    ioloop = tornado.ioloop.IOLoop.instance()
+
+    holder = [None]
+
+    def done(result):
+        holder[0] = result
+        ioloop.stop()
+
+    d.addBoth(done)
+    ioloop.start()
+
+    result = holder[0]
+    if isinstance(result, Failure):
+        result.raiseException()
+    else:
+        return result
 
 
 @inlineCallbacks
